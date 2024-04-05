@@ -1,38 +1,38 @@
 #!/usr/bin/env bash
-# Script that sets up web servers from the deployment of web_static.
+# Sets up a web server for deployment of web_static.
 
-# install nginx if not exists
-apt update
-apt install nginx -y
+apt-get update
+apt-get install -y nginx
 
-# create necessary directories and indes file
 mkdir -p /data/web_static/releases/test/
-if [ ! -d "/data/web_static/shared/" ]; then
-    mkdir /data/web_static/shared/
-fi
-touch /data/web_static/releases/test/index.html
-echo "<html>
-  <head>
-  </head>
-  <body>
-    Holberton School
-  </body>
-</html>" > /data/web_static/releases/test/index.html
+mkdir -p /data/web_static/shared/
+echo "Holberton School" > /data/web_static/releases/test/index.html
+ln -sf /data/web_static/releases/test/ /data/web_static/current
 
-# create a symbolik link
-link_path="/data/web_static/current"
-release_path="/data/web_static/releases/test/"
-if [ -L "$link_path" ]; then
-        rm "$link_path"
-fi
-ln -s "$release_path" "$link_path"
+chown -R ubuntu /data/
+chgrp -R ubuntu /data/
 
-# give recursive ownership for the data directory
-chown -R ubuntu:ubuntu /data/
+printf %s "server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    add_header X-Served-By $HOSTNAME;
+    root   /var/www/html;
+    index  index.html index.htm;
 
-# updating the nginx configuration
-sed -i '57i\\n\tlocation \/hbnb_static {\n\t\talias /data/web_static/current/;\n\t}' /etc/nginx/sites-available/default
+    location /hbnb_static {
+        alias /data/web_static/current;
+        index index.html index.htm;
+    }
 
-# restart web server
+    location /redirect_me {
+        return 301 http://cuberule.com/;
+    }
+
+    error_page 404 /404.html;
+    location /404 {
+      root /var/www/html;
+      internal;
+    }
+}" > /etc/nginx/sites-available/default
+
 service nginx restart
-
